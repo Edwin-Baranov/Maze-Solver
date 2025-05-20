@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	generator "mazesolver/Board"
+	"mazesolver/Board/algorithms"
 )
 
 type gridMaze struct {
@@ -107,81 +108,78 @@ func NewGenerator() generator.MazeGenerator {
 	return &gridMazeGenerator{}
 }
 
-// generateMaze creates a maze using randomized DFS
-func (gm *gridMaze) generateMaze(seed int64) {
+// generateMaze creates a maze using the selected algorithm
+func (gm *gridMaze) generateMaze(seed int64, algoType algorithms.AlgorithmType) {
 	// Create a local random generator
 	rng := rand.New(rand.NewSource(seed))
 
-	// Start at top left corner
+	// Set start point at (0,0) for all algorithms
 	gm.startX, gm.startY = 0, 0
 
-	// Initialize end point based on grid dimensions being even or odd
+	// End point depends on grid dimensions being even or odd
 	if len(gm.grid)%2 == 0 {
 		gm.endX = len(gm.grid) - 2
 	} else {
 		gm.endX = len(gm.grid) - 1
 	}
-
 	if len(gm.grid[0])%2 == 0 {
 		gm.endY = len(gm.grid[0]) - 2
 	} else {
 		gm.endY = len(gm.grid[0]) - 1
 	}
 
-	// Carve paths
-	gm.carvePath(gm.startX, gm.startY, rng)
-
-	// Ensure end is reachable
-	gm.grid[gm.endX][gm.endY] = generator.Empty
-}
-
-// carvePath uses recursive backtracking to create the maze
-func (gm *gridMaze) carvePath(x, y int, rng *rand.Rand) {
-	// Set current cell as empty
-	gm.grid[x][y] = generator.Empty
-
-	// Define movement directions (up, right, down, left)
-	directions := [][2]int{{-2, 0}, {0, 2}, {2, 0}, {0, -2}}
-	rng.Shuffle(len(directions), func(i, j int) {
-		directions[i], directions[j] = directions[j], directions[i]
-	})
-
-	// Try each direction
-	for _, dir := range directions {
-		newX := x + dir[0]
-		newY := y + dir[1]
-
-		// Check if the new position is within bounds and still a wall
-		if newX >= 0 && newX < len(gm.grid) &&
-			newY >= 0 && newY < len(gm.grid[0]) &&
-			gm.grid[newX][newY] == generator.Wall {
-			gm.grid[x+dir[0]/2][y+dir[1]/2] = generator.Empty
-			gm.carvePath(newX, newY, rng)
-		}
+	// Get the selected algorithm
+	var algo algorithms.Algorithm
+	switch algoType {
+	case algorithms.RecursiveBacktracking:
+		algo = algorithms.NewRecursiveBacktrackingAlgorithm()
+	case algorithms.Prims:
+		algo = algorithms.NewPrimsAlgorithm()
+	case algorithms.Kruskals:
+		algo = algorithms.NewKruskalsAlgorithm()
+	case algorithms.RecursiveDivision:
+		algo = algorithms.NewRecursiveDivisionAlgorithm()
+	case algorithms.AldousBroder:
+		algo = algorithms.NewAldousBroderAlgorithm()
+	case algorithms.Wilson:
+		algo = algorithms.NewWilsonAlgorithm()
+	case algorithms.HuntAndKill:
+		algo = algorithms.NewHuntAndKillAlgorithm()
+	default:
+		algo = algorithms.NewRecursiveBacktrackingAlgorithm()
 	}
+
+	// Generate the maze
+	algo.Generate(gm.grid, rng)
+
+	// Ensure start and end points are empty
+	gm.grid[gm.startX][gm.startY] = generator.Empty
+	gm.grid[gm.endX][gm.endY] = generator.Empty
 }
 
 func (gmg *gridMazeGenerator) GenerateRandomMaze(params ...int) generator.Maze {
 	var maze *gridMaze
 	switch len(params) {
-	case 1:
+	case 2:
 		seed := params[0]
+		algoType := params[1]
 		maze = &gridMaze{}
 		maze.initGrid()
-		maze.generateMaze(int64(seed))
+		maze.generateMaze(int64(seed), algorithms.AlgorithmType(algoType))
 		return maze
 
-	case 3:
+	case 4:
 		sizeX := params[0]
 		sizeY := params[1]
 		seed := params[2]
+		algoType := params[3]
 		maze = &gridMaze{}
 		maze.initGrid(sizeX, sizeY)
-		maze.generateMaze(int64(seed))
+		maze.generateMaze(int64(seed), algorithms.AlgorithmType(algoType))
 		return maze
 
 	default:
-		fmt.Println("Invalid number of parameters")
+		fmt.Println("Invalid number of parameters. Expected (seed, algorithm) or (sizeX, sizeY, seed, algorithm)")
 		return nil
 	}
 }
